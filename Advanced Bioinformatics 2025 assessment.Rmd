@@ -1,0 +1,348 @@
+---
+title: "Advanced Bioinformatics 2025 assessment"
+author: "AF28086"
+output: html_notebook
+---
+Task 3.1
+```{r}
+sum(5:55)
+```
+Task 3.2
+```{r}
+# Define Sumfun
+sumfun <- function(n) {
+  return(sum(5:n)) 
+}
+
+# Print the results
+cat("Sum for n = 10:", sumfun(10), "\n")
+cat("Sum for n = 20:", sumfun(20), "\n")
+cat("Sum for n = 100:", sumfun(100), "\n")
+```
+Task 3.3
+```{r}
+# Initialize first two Fibonacci numbers
+fib <- c(1, 1)
+
+# Next Fibonacci numbers calculated using a for loop
+for (i in 3:12) {
+  fib[i] <- fib[i-1] + fib[i-2]
+}
+
+# First 12 Fibonacci numbers
+print(fib)
+
+```
+Task 3.4
+```{r}
+# Load the ggplot2 library
+library(ggplot2)
+
+data("mtcars")
+
+# Generate Boxplot
+ggplot(mtcars, aes(x = factor(gear), y = mpg, fill = factor(gear))) +
+  geom_boxplot() +
+  labs(x = "Number of Gears", y = "Miles per Gallon (mpg)", fill = "Gears") +
+  theme_minimal() +
+  ggtitle("Boxplot of MPG by Number of Gears")
+
+```
+Task 3.5
+```{r}
+# Use the built-in cars dataset
+data(cars)
+
+# Fit linear model: braking distance as a function of speed
+model <- lm(dist ~ speed, data = cars)
+
+# Display model summary
+summary(model)
+
+```
+Task 3.6 
+```{r}
+ggplot(cars, aes(x = speed, y = dist)) +
+  geom_point(color = "blue", size = 3) +                            # Data points
+  geom_smooth(method = "lm", se = FALSE, color = "red", size = 1) + # Linear regression line
+  labs(
+    title = "Braking Distance vs Speed",
+    x = "Speed (mph)",
+    y = "Braking Distance (ft)"
+  ) +
+  theme_minimal()
+```
+Task 3.7
+```{r}
+# Create a new variable for speed squared
+cars$speed_sq <- cars$speed^2
+
+# Fit the linear model: dist = a*speed + b*speed^2
+model <- lm(dist ~ speed + speed_sq, data = cars)
+
+# Display model summary
+summary(model)
+
+# Extract coefficient for speed (linear term)
+a <- coef(model)["speed"]
+
+# Convert to estimated reaction time (in seconds)
+# 1 mph ≈ 1.467 feet/sec
+reaction_time <- a / 1.467
+
+# Print estimated reaction time
+cat("Estimated driver reaction time (seconds):", round(reaction_time, 2), "\n")
+
+# Plot the data and the fitted curve
+ggplot(cars, aes(x = speed, y = dist)) +
+  geom_point(color = "blue", size = 3) +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), color = "red", se = FALSE) +
+  labs(
+    title = "Estimating Driver Reaction Time from Speed vs Distance",
+    x = "Speed (mph)",
+    y = "Braking Distance (ft)"
+  ) +
+  theme_minimal()
+```
+Task 3.8
+```{r}
+# Read count data
+counts <- read.csv("exercise1_counts.csv", header = TRUE, row.names = 1, check.names = FALSE)
+
+# Read sample description
+sample_description <- read.delim("exercise1_sample_description.info", header = TRUE, stringsAsFactors = FALSE)
+
+# Set rownames of col_data to match column names in counts
+col_data <- sample_description
+rownames(col_data) <- col_data$sample 
+
+# Check dimensions
+dim(counts)       
+dim(col_data)      
+
+# Confirm matching sample names
+all(colnames(counts) %in% rownames(col_data))  # Should return TRUE
+
+```
+Task 3.9
+```{r}
+# View column names of count data (assuming first column is gene IDs)
+colnames(counts)[-1]  # excluding gene ID column
+
+# View sample names in sample description
+sample_description$sample  # adjust column name if it's different
+
+# Set row names of sample description to match column names of count matrix
+col_data <- sample_description
+rownames(col_data) <- col_data$sample
+
+# Now check dimensions
+dim(counts)         
+dim(col_data)        
+
+# Clean up column names 
+clean_names <- gsub("\\.bam$", "", colnames(counts))
+clean_names <- gsub("^.*_", "", clean_names)  
+
+# Clean up column names (remove prefixes and .bam extensions)
+clean_names <- gsub("\\.bam$", "", colnames(counts))
+clean_names <- gsub("^.*_", "", clean_names)
+
+# Set the cleaned column names
+colnames(counts) <- clean_names
+
+# Confirm alignment
+all(colnames(counts)[-1] %in% rownames(col_data))
+```
+Task 3.10
+```{r}
+library(DESeq2)
+
+# Construct DESeqDataSet
+dds <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData = col_data,
+  design = ~ condition  
+)
+
+# Check the DESeqDataSet object
+dds
+```
+Task 3.11
+```{r}
+# Regularized Log Transformation (rlog)
+rld <- rlog(dds, blind = TRUE)
+
+# Variance Stabilizing Transformation (VST)
+vsd <- vst(dds, blind = TRUE)
+
+# view transformed data
+head(assay(rld))
+head(assay(vsd))
+```
+Task 3.12
+```{r}
+library(pheatmap)
+
+# Top 40 genes from rlog
+top_genes_rlog <- head(order(rowMeans(assay(rld)), decreasing = TRUE), 40)
+
+# Top 40 genes from VST
+top_genes_vsd <- head(order(rowMeans(assay(vsd)), decreasing = TRUE), 40)
+
+# Heatmap using rlog data
+pheatmap(assay(rld)[top_genes_rlog, ],
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_rownames = TRUE,
+         scale = "row",
+         main = "Top 40 Highly Expressed Genes (rlog)")
+
+# Heatmap using VST data
+pheatmap(assay(vsd)[top_genes_vsd, ],
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_rownames = TRUE,
+         scale = "row",
+         main = "Top 40 Highly Expressed Genes (VST)")
+
+```
+Task 3.13
+```{r}
+# Compute sample distances using rlog-transformed data
+sample_dists <- dist(t(assay(rld)))
+
+# Convert to matrix
+sample_dist_matrix <- as.matrix(sample_dists)
+
+pheatmap(sample_dist_matrix,
+         clustering_distance_rows = sample_dists,
+         clustering_distance_cols = sample_dists,
+         main = "Sample Distance Matrix (rlog)")
+```
+Task 3.14
+```{r}
+# Run PCA
+pca <- prcomp(t(assay(rld)))
+
+# Variance explained by each PC
+pca_var <- pca$sdev^2
+pca_var_percent <- round(100 * pca_var / sum(pca_var), 2)
+
+# Show PC1 and PC2 variance
+cat("PC1 explains", pca_var_percent[1], "% of variance\n")
+cat("PC2 explains", pca_var_percent[2], "% of variance\n")
+
+# Data frame with PCA results
+pca_df <- as.data.frame(pca$x)
+pca_df$Group <- colData(rld)$condition  
+
+# Plot
+ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", pca_var_percent[1], "% variance")) +
+  ylab(paste0("PC2: ", pca_var_percent[2], "% variance")) +
+  theme_minimal() +
+  ggtitle("PCA of Samples (rlog-transformed data)")
+```
+Task 3.15
+```{r}
+library(DESeq2)
+# PCA on VST-transformed data
+pca_vst <- prcomp(t(assay(vsd)))
+
+# Variance explained
+vst_var <- pca_vst$sdev^2
+vst_var_percent <- round(100 * vst_var / sum(vst_var), 2)
+
+# Print explained variance
+cat("PC1 (VST):", vst_var_percent[1], "%\n")
+cat("PC2 (VST):", vst_var_percent[2], "%\n")
+
+vst_pca_df <- as.data.frame(pca_vst$x)
+vst_pca_df$Group <- colData(vsd)$condition
+
+library(ggplot2)
+library(patchwork)
+
+# rlog PCA plot
+p1 <- ggplot(pca_df, aes(x = PC1, y = PC2, color = Group)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", pca_var_percent[1], "%")) +
+  ylab(paste0("PC2: ", pca_var_percent[2], "%")) +
+  ggtitle("PCA (rlog)") +
+  theme_minimal()
+
+# vst PCA plot
+ggplot(vst_pca_df, aes(x = PC1, y = PC2, color = Group)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", vst_var_percent[1], "%")) +
+  ylab(paste0("PC2: ", vst_var_percent[2], "%")) +
+  ggtitle("PCA (VST)") +
+  theme_minimal()
+
+```
+Task 3.16
+```{r}
+rep1 <- read.delim("mycmelrep1_peaks.xls", comment.char = "#")
+rep2 <- read.delim("mycmelrep2_peaks.xls", comment.char = "#")
+
+library(GenomicRanges)
+
+gr1 <- GRanges(seqnames = rep1$chr,
+               ranges = IRanges(start = rep1$start, end = rep1$end))
+
+gr2 <- GRanges(seqnames = rep2$chr,
+               ranges = IRanges(start = rep2$start, end = rep2$end))
+
+overlaps <- findOverlaps(gr1, gr2)
+common_peaks <- pintersect(gr1[queryHits(overlaps)], gr2[subjectHits(overlaps)])
+
+common_peaks_df <- as.data.frame(common_peaks)
+head(common_peaks_df)
+```
+Task 3.17
+```{r}
+# Check metadata to find fold enrichment column 
+mcols(gr1)
+
+# Map fold enrichment from rep1 to common_peaks
+hits <- findOverlaps(common_peaks, gr1)
+common_peaks$FE <- rep1$X.log10.pvalue.[subjectHits(hits)]
+
+
+# Sort by fold enrichment or signal (descending), select top 500
+peaks_sorted <- common_peaks[order(common_peaks$FE, decreasing = TRUE)]
+top500 <- head(peaks_sorted, 500)
+
+# Resize to 200bp centered on the peak
+top500_resized <- resize(top500, width = 200, fix = "center")
+```
+Task 3.18
+```{r}
+library(BSgenome)
+library(TxDb.Mmusculus.UCSC.mm9.knownGene)
+library(Biostrings)
+
+# Load the appropriate BSgenome object for mouse mm9
+library(BSgenome.Mmusculus.UCSC.mm9)
+
+# Add the 'chr' prefix to the sequence names in top500_resized
+seqlevels(top500_resized) <- paste0("chr", seqlevels(top500_resized))
+
+# Identify common sequence levels between top500_resized and BSgenome
+common_seqlevels <- intersect(seqlevels(top500_resized), seqnames(BSgenome.Mmusculus.UCSC.mm9))
+
+# Update top500_resized to keep only the common sequence levels
+top500_resized <- keepSeqlevels(top500_resized, common_seqlevels)
+
+# Extract the sequences based on these genomic ranges from the genome
+sequences <- getSeq(BSgenome.Mmusculus.UCSC.mm9, top500_resized)
+
+# Name the sequences (optional but nice for FASTA headers)
+names(sequences) <- paste0("peak_", seq_along(sequences))
+
+# Write to FASTA file
+writeXStringSet(sequences, filepath = "top500_myc_peaks.fa")
+
+```
